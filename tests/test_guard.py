@@ -12,6 +12,7 @@ exercised, the test injects its own throwaway value into the environment. No rea
 secret is read, written, or asserted against.
 """
 
+import base64
 import json
 import os
 import pathlib
@@ -168,6 +169,57 @@ class TestSyntheticSecrets(GuardTestCase):
         reason = g.format_reason("mcp__plugin_discord_discord__reply", findings)
         self.assertNotIn(secret, reason)
         self.assertIn("github-pat", reason)
+
+
+class TestEvasion(GuardTestCase):
+    """Cases found by attacking the guard directly rather than by reading it.
+
+    A secret survived a single injected newline, which ordinary line wrapping in a chat
+    message can produce by accident, and it survived base64 encoding, which an agent
+    wrapping a value for an auth header would produce deliberately. Both now fail closed.
+    """
+
+    FAKE = "sk-or-v1-" + "9f3a2b7c1d4e" * 5
+
+    def with_live(self):
+        os.environ["OPENROUTER_API_KEY"] = self.FAKE
+        return self.cfg()
+
+    def test_plain_live_value_blocks(self):
+        self.with_live()
+        self.assertTrue(self.blocking(f"here it is {self.FAKE}"))
+
+    def test_value_split_by_a_newline_still_blocks(self):
+        self.with_live()
+        split = self.FAKE[:12] + "\n" + self.FAKE[12:]
+        self.assertTrue(self.blocking(f"key:\n{split}"),
+                        "a newline inside the value must not defeat the check")
+
+    def test_value_split_by_spaces_still_blocks(self):
+        self.with_live()
+        spaced = " ".join(self.FAKE[i:i + 8] for i in range(0, len(self.FAKE), 8))
+        self.assertTrue(self.blocking(spaced))
+
+    def test_base64_encoded_value_blocks(self):
+        self.with_live()
+        blob = base64.b64encode(self.FAKE.encode()).decode()
+        self.assertTrue(self.blocking(f"Authorization: Basic {blob}"),
+                        "a base64-wrapped secret must not pass")
+
+    def test_ordinary_base64_is_not_a_false_positive(self):
+        self.with_live()
+        blob = base64.b64encode(b"just some ordinary content, nothing secret here").decode()
+        self.assertEqual([], self.blocking(f"payload={blob}"),
+                         "decoding must only ever be compared against known secrets")
+
+    def test_reversal_is_documented_as_out_of_scope(self):
+        # Asserting the CURRENT behaviour on purpose. Reversal, substitution, encryption and
+        # chunking across separate calls are unbounded transformations, and a guard that
+        # claimed to catch them would be making a promise it cannot keep. This test exists so
+        # the limitation is explicit in the suite rather than discovered by a user.
+        self.with_live()
+        self.assertEqual([], self.blocking(self.FAKE[::-1]),
+                         "if this starts passing, update the README's scope section too")
 
 
 class TestFalsePositives(GuardTestCase):

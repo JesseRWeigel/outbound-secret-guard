@@ -37,6 +37,7 @@ import json
 import math
 import os
 import pathlib
+import base64
 import re
 import sys
 import time
@@ -370,6 +371,38 @@ def env_secrets(cfg):
     return out
 
 
+_B64_BLOB = re.compile(r"[A-Za-z0-9+/=]{24,}")
+
+
+def _decode_base64_blobs(text, limit=40):
+    """Base64-decode any long base64-looking run and return the printable results.
+
+    An agent that wraps a value before sending it (an auth header, a JSON payload, a data
+    URI) defeats a literal comparison entirely. Decoding is cheap and the false-positive
+    cost is zero, because a decoded blob is only ever compared against known secrets and
+    never reported on its own.
+
+    Deliberately NOT attempted: reversal, character substitution, encryption, chunking a
+    secret across separate tool calls. Those are unbounded transformations and a scanner
+    that claimed to catch them would be lying. This guard stops accidents and casual
+    encoding, not a determined exfiltrator with shell access.
+    """
+    out = []
+    for m in _B64_BLOB.findall(text)[:limit]:
+        pad = m + "=" * (-len(m) % 4)
+        try:
+            raw = base64.b64decode(pad, validate=False)
+        except Exception:
+            continue
+        try:
+            s = raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError:
+            continue
+        if s.isprintable():
+            out.append(s)
+    return out
+
+
 def scan_text(text, cfg, where="payload", live=None, store=None):
     """Return a list of findings. Never returns the matched text."""
     findings = []
@@ -397,13 +430,33 @@ def scan_text(text, cfg, where="payload", live=None, store=None):
             f["severity"] = "warn"
         findings.append(f)
 
+    # Two derived views of the payload, so a value that is present but not literally
+    # contiguous is still caught. Both were added after attacking the guard directly and
+    # finding that a secret survived a single injected newline, which is something ordinary
+    # line wrapping in a chat message can do by accident.
+    dewhitespaced = re.sub(r"\s+", "", text)
+    decoded_blobs = _decode_base64_blobs(text)
+
     # 1. Live environment values, literal substring comparison. Highest confidence signal
     #    there is: this exact string is a credential this machine holds right now.
     for name, val in (live if live is not None else env_secrets(cfg)):
-        if val in text and not _allowed(val, cfg, allow_res):
+        if _allowed(val, cfg, allow_res):
+            continue
+        if val in text:
             add(_finding("env-live-value", "block",
                          f"live value of ${name} from this machine's environment",
                          val, 0, where))
+        elif val in dewhitespaced:
+            add(_finding("env-live-value", "block",
+                         f"live value of ${name}, split by whitespace in the payload",
+                         val, 0, where))
+        else:
+            for blob in decoded_blobs:
+                if val in blob:
+                    add(_finding("env-live-value", "block",
+                                 f"live value of ${name}, base64 encoded in the payload",
+                                 val, 0, where))
+                    break
 
     # 2. Previously learned values, matched by salted hash so nothing is stored in clear.
     if store and store.get("entries"):

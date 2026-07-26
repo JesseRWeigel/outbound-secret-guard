@@ -100,6 +100,27 @@ python3 outbound_secret_guard.py forget         # delete the hash store
 echo -n 'value' | python3 outbound_secret_guard.py fingerprint   # for allowlisting
 ```
 
+## What it catches, and what it does not
+
+Found by attacking the guard rather than by reading it. All of these are now covered by
+tests in `tests/test_guard.py::TestEvasion`.
+
+**Caught:** a live environment value appearing literally; the same value split by a newline
+or by spaces, which ordinary line wrapping in a chat message can produce by accident; the
+same value base64 encoded, which is what an agent wrapping a credential for an
+`Authorization` header produces; values nested inside dicts and lists in the tool input;
+values inside a `gh issue create` body or a `curl -d` payload.
+
+**Not caught, deliberately and permanently:** reversal, character substitution, encryption,
+compression, and chunking a secret across separate tool calls. These are unbounded
+transformations. A scanner claiming to catch them would be making a promise it cannot keep,
+and the claim itself would be the danger, because someone would rely on it.
+
+The honest scope is therefore: **this stops accidents and casual encoding. It does not stop a
+determined exfiltrator who already has shell access.** If that is your threat model, this is
+not the control you need. There is a test asserting the current behaviour on reversal
+specifically, so if that ever changes the README has to change with it.
+
 ## Installing it
 
 **This is deliberately not installed.** Adding a `deny` hook to a live agent is a decision
@@ -223,7 +244,7 @@ $ ./verify.sh
 
 == 5. unit suite ==
         ----------------------------------------------------------------------
-        Ran 58 tests in 0.539s
+        Ran 64 tests in 0.539s
 
         OK
   PASS  unit suite
