@@ -61,7 +61,7 @@ font-size:14px;color:var(--ink3)}
   </div>
 </header>
 <p>A <code>PreToolUse</code> hook for Claude Code that reads every tool call which sends text off the machine and refuses the ones carrying a credential.</p>
-<p>Catalog task: <code>AGENT-017</code>. Part of <a href="../../README.md">thousand</a>.</p>
+<p>Catalog task: <code>AGENT-017</code>. Part of <a href="https://github.com/JesseRWeigel/722-things-to-build">thousand</a>.</p>
 <p><strong><a href="https://jesserweigel.github.io/outbound-secret-guard/">Read this on the web</a></strong></p>
 <h2>What this is</h2>
 <p>An agent that can read your filesystem and also post to Discord, open a GitHub issue, POST a webhook, or publish an Artifact is one careless paste away from putting a live API key somewhere public. Telling the model to be careful does not fix this, because the model cannot always tell which strings are secret. This hook inspects the payload instead.</p>
@@ -102,6 +102,11 @@ python3 outbound_secret_guard.py selftest       # built-in synthetic checks
 python3 outbound_secret_guard.py learn-env GEMINI_API_KEY OPENROUTER_API_KEY
 python3 outbound_secret_guard.py forget         # delete the hash store
 echo -n &#x27;value&#x27; | python3 outbound_secret_guard.py fingerprint   # for allowlisting</code></pre>
+<h2>What it catches, and what it does not</h2>
+<p>Found by attacking the guard rather than by reading it. All of these are now covered by tests in <code>tests/test_guard.py::TestEvasion</code>.</p>
+<p><strong>Caught:</strong> a live environment value appearing literally; the same value split by a newline or by spaces, which ordinary line wrapping in a chat message can produce by accident; the same value base64 encoded, which is what an agent wrapping a credential for an <code>Authorization</code> header produces; values nested inside dicts and lists in the tool input; values inside a <code>gh issue create</code> body or a <code>curl -d</code> payload.</p>
+<p><strong>Not caught, deliberately and permanently:</strong> reversal, character substitution, encryption, compression, and chunking a secret across separate tool calls. These are unbounded transformations. A scanner claiming to catch them would be making a promise it cannot keep, and the claim itself would be the danger, because someone would rely on it.</p>
+<p>The honest scope is therefore: <strong>this stops accidents and casual encoding. It does not stop a determined exfiltrator who already has shell access.</strong> If that is your threat model, this is not the control you need. There is a test asserting the current behaviour on reversal specifically, so if that ever changes the README has to change with it.</p>
 <h2>Installing it</h2>
 <p><strong>This is deliberately not installed.</strong> Adding a <code>deny</code> hook to a live agent is a decision for Jesse, not for the agent that wrote it. To turn it on, add this to <code>~/.claude/settings.json</code> (or a project <code>.claude/settings.json</code>) under <code>hooks</code>:</p>
 <pre><code>{
@@ -169,7 +174,7 @@ echo -n &#x27;value&#x27; | python3 outbound_secret_guard.py fingerprint   # for
 
 == 5. unit suite ==
         ----------------------------------------------------------------------
-        Ran 58 tests in 0.539s
+        Ran 64 tests in 0.539s
 
         OK
   PASS  unit suite
