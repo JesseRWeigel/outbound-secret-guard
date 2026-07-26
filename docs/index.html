@@ -1,0 +1,195 @@
+<title>outbound-secret-guard</title>
+<style>
+:root{color-scheme:light;--bg:#FAF9FC;--bg2:#F2F0F7;--ink:#1B1826;--ink2:#4A4459;
+--ink3:#6C6580;--rule:#DDD8E8;--accent:#4A3AA7;--code:#F2F0F7;
+--mono:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono",Menlo,Consolas,monospace;
+--sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media(prefers-color-scheme:dark){:root:where(:not([data-theme=light])){color-scheme:dark;
+--bg:#17151C;--bg2:#1F1C27;--ink:#EDE9F5;--ink2:#B9B2C9;--ink3:#948CA6;--rule:#322D3E;
+--accent:#9085E9;--code:#1F1C27}}
+:root[data-theme=dark]{color-scheme:dark;--bg:#17151C;--bg2:#1F1C27;--ink:#EDE9F5;
+--ink2:#B9B2C9;--ink3:#948CA6;--rule:#322D3E;--accent:#9085E9;--code:#1F1C27}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:760px;margin:0 auto;padding:0 22px 90px}
+header{padding:64px 0 28px;border-bottom:2px solid var(--ink)}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+color:var(--ink3);margin:0 0 14px}
+h1{font-family:var(--mono);font-weight:600;font-size:clamp(30px,5.5vw,50px);line-height:1.05;
+letter-spacing:-.03em;margin:0 0 14px;text-wrap:balance}
+.tag{font-size:19px;color:var(--ink2);margin:0;max-width:58ch}
+.cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+.btn{font-family:var(--mono);font-size:13px;text-decoration:none;padding:9px 16px;
+border:1px solid var(--rule);border-radius:3px;color:var(--ink);background:var(--bg2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary:hover{color:var(--bg);opacity:.9}
+h2{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+color:var(--ink3);font-weight:600;margin:44px 0 14px;padding-bottom:8px;
+border-bottom:1px solid var(--rule)}
+h3{font-size:17px;margin:26px 0 8px}
+p,li{color:var(--ink2)}p{max-width:66ch}
+strong{color:var(--ink)}
+a{color:var(--accent)}
+pre{background:var(--code);border:1px solid var(--rule);border-radius:4px;padding:14px 16px;
+overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.55;color:var(--ink)}
+code{font-family:var(--mono);font-size:.9em;background:var(--code);padding:1px 5px;
+border-radius:3px}
+pre code{background:none;padding:0}
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:14px 0;display:block;
+overflow-x:auto}
+th,td{text-align:left;padding:8px 14px 8px 0;border-bottom:1px solid var(--rule);
+vertical-align:top}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+color:var(--ink3);font-weight:600;white-space:nowrap}
+blockquote{margin:18px 0;padding:12px 18px;border-left:3px solid var(--accent);
+background:var(--bg2);border-radius:0 4px 4px 0}
+blockquote p{margin:0}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--rule);
+font-size:14px;color:var(--ink3)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<div class="wrap">
+<header>
+  <p class="eyebrow">JesseRWeigel &middot; open source</p>
+  <h1>outbound-secret-guard</h1>
+  <p class="tag">Stop an agent from pasting your API key into a Discord message.</p>
+  <div class="cta">
+    
+    <a class="btn primary" href="https://github.com/JesseRWeigel/outbound-secret-guard">Source on GitHub</a>
+  </div>
+</header>
+<p>A <code>PreToolUse</code> hook for Claude Code that reads every tool call which sends text off the machine and refuses the ones carrying a credential.</p>
+<p>Catalog task: <code>AGENT-017</code>. Part of <a href="../../README.md">thousand</a>.</p>
+<h2>What this is</h2>
+<p>An agent that can read your filesystem and also post to Discord, open a GitHub issue, POST a webhook, or publish an Artifact is one careless paste away from putting a live API key somewhere public. Telling the model to be careful does not fix this, because the model cannot always tell which strings are secret. This hook inspects the payload instead.</p>
+<p>It is one file, <code>outbound_secret_guard.py</code>, stdlib only, no dependencies. It reads a tool call as JSON on stdin and writes a decision as JSON on stdout, exit code 0 always. Same contract as <code>tools/disk_guard.py</code> in this repo.</p>
+<h3>What it scans</h3>
+<p>Only calls that actually leave the machine, so the noise stays low:</p>
+<table><thead><tr><th>Tool</th><th>Scanned</th></tr></thead><tbody><tr><td><code>WebFetch</code>, <code>WebSearch</code></td><td>url, prompt, every string field</td></tr><tr><td><code>Artifact</code></td><td>every field, plus the contents of the file being published</td></tr><tr><td><code>mcp__*</code></td><td>every string field, since MCP servers usually talk to a remote service</td></tr><tr><td><code>Bash</code></td><td>only when the command reaches the network: <code>curl</code>, <code>wget</code>, <code>gh</code>, <code>git push</code>, <code>ssh</code>, <code>scp</code>, <code>rsync</code>, <code>aws</code>, <code>gcloud</code>, <code>vercel</code>, <code>npm publish</code>, <code>ntfy</code>, <code>mail</code>, and friends</td></tr><tr><td><code>Read</code>, <code>Write</code>, <code>Edit</code>, <code>Grep</code>, local MCP servers</td><td>nothing, these stay on the box</td></tr></tbody></table>
+<p><code>Bash</code> deserves a note. Scanning every shell command would flag <code>cat .env</code>, which is a local read, and that kind of noise is how a guard ends up switched off. Set <code>scan_all_tools: true</code> if you want the paranoid version anyway.</p>
+<h3>How it detects</h3>
+<p>Three detectors run over each payload.</p>
+<p><strong>1. Named credential shapes.</strong> 25 gitleaks-style rules: AWS access key ids and secret access keys, GitHub PATs including fine grained ones, OpenAI <code>sk-</code>, OpenRouter <code>sk-or-</code>, Anthropic <code>sk-ant-</code>, Google <code>AIza</code>, GCP service account JSON, Slack tokens and webhooks, Discord bot tokens and webhooks, Stripe live and test keys, npm, PyPI, Hugging Face, GitLab, SendGrid, Twilio, PEM private key blocks, JWTs, credentials embedded in a URL, and populated <code>Authorization</code> headers.</p>
+<p><strong>2. Live environment values.</strong> The hook reads the named environment variables from <code>os.environ</code> at hook runtime and does a literal substring comparison against the payload. This is the highest confidence signal available, since the string being sent is byte for byte a credential this machine holds right now. <code>GEMINI_API_KEY</code> and <code>OPENROUTER_API_KEY</code> are in the default list along with 18 others.</p>
+<p>Nothing is persisted by this path. If you want detection to survive the variable not being set, <code>learn-env</code> stores <code>sha256(random_salt || value)</code> plus a length, which is enough to recognise the value again and not enough to recover it. The value itself is never written to a file, a log line, a test fixture, or a denial message.</p>
+<p><strong>3. Shannon entropy.</strong> For credential shapes nobody wrote a regex for. Only values in an assignment or header position are considered, at least 32 characters, at least 12 distinct characters, above 4.2 bits per character. That threshold sits above a hex sha (4.0 is the ceiling for hex) and a UUID (about 3.9), and below random base64 (4.7 and up). Values that look like placeholders, lockfile integrity hashes, data URIs, ISO timestamps, or unix paths are skipped, as are names like <code>publicKey</code>, <code>integrity</code>, and <code>max_tokens</code>.</p>
+<h3>What a block looks like</h3>
+<pre><code>BLOCKED: outbound-secret-guard found 1 credential in this
+mcp__plugin_discord_discord__reply payload, which leaves this machine.
+
+  [openrouter-key] OpenRouter API key
+      value: sk-or-v1-[redacted 73 chars]   fingerprint: 82d747ac89b7
+      found in: tool_input.message
+
+The matched text is deliberately not reproduced here, because this message goes
+into the transcript. Do not retry with the value pasted differently.
+
+What to do:
+  - If it is a real credential: send an environment variable reference instead,
+    for example $OPENROUTER_API_KEY, and rotate the key if it already went out.
+  - If it is a false positive: add the fingerprint above to allow_fingerprints in
+    .outbound-secret-guard.json, or the rule id to disabled_rules.</code></pre>
+<p>The denial carries a rule id, a length, and a salted fingerprint. It never carries the matched text, because the denial goes straight into the transcript, which is the thing you were trying to keep the secret out of.</p>
+<h2>Running it</h2>
+<pre><code>./verify.sh                              # the full proof, exit 0 means it works
+python3 -m unittest discover -s tests    # unit suite only
+
+python3 outbound_secret_guard.py scan FILE...   # scan files, exit 1 on a finding
+python3 outbound_secret_guard.py selftest       # built-in synthetic checks
+python3 outbound_secret_guard.py learn-env GEMINI_API_KEY OPENROUTER_API_KEY
+python3 outbound_secret_guard.py forget         # delete the hash store
+echo -n &#x27;value&#x27; | python3 outbound_secret_guard.py fingerprint   # for allowlisting</code></pre>
+<h2>Installing it</h2>
+<p><strong>This is deliberately not installed.</strong> Adding a <code>deny</code> hook to a live agent is a decision for Jesse, not for the agent that wrote it. To turn it on, add this to <code>~/.claude/settings.json</code> (or a project <code>.claude/settings.json</code>) under <code>hooks</code>:</p>
+<pre><code>{
+  &quot;hooks&quot;: {
+    &quot;PreToolUse&quot;: [
+      {
+        &quot;matcher&quot;: &quot;*&quot;,
+        &quot;hooks&quot;: [
+          {
+            &quot;type&quot;: &quot;command&quot;,
+            &quot;command&quot;: &quot;python3 /home/jesse/Projects/thousand/projects/outbound-secret-guard/outbound_secret_guard.py&quot;
+          }
+        ]
+      }
+    ]
+  }
+}</code></pre>
+<p>The <code>&quot;*&quot;</code> matcher is correct here. The hook decides for itself which tools are outbound, and a narrower matcher would silently miss MCP tools added later. Cost is about 40 ms per tool call on an 80 KB payload, most of which is Python interpreter startup.</p>
+<p>Optional, after installing:</p>
+<pre><code>python3 outbound_secret_guard.py learn-env    # remember this box&#x27;s keys by salted hash</code></pre>
+<p>To turn it off, delete the block. There is no kill switch inside the hook on purpose.</p>
+<h2>Configuration</h2>
+<p>Copy <code>config.example.json</code> to <code>.outbound-secret-guard.json</code> in your project root, or to <code>~/.config/outbound-secret-guard/config.json</code>, or point <code>OUTBOUND_SECRET_GUARD_CONFIG</code> at it. Every field is optional.</p>
+<table><thead><tr><th>Key</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><code>entropy_threshold</code></td><td><code>4.2</code></td><td>bits per character above which a value is suspicious</td></tr><tr><td><code>entropy_min_length</code></td><td><code>32</code></td><td>shorter values are never entropy-checked</td></tr><tr><td><code>env_vars</code></td><td>20 common names</td><td>environment variables compared literally</td></tr><tr><td><code>allow_literals</code></td><td><code>[]</code></td><td>exact strings that are never a finding</td></tr><tr><td><code>allow_patterns</code></td><td><code>[]</code></td><td>regexes, must match the whole value</td></tr><tr><td><code>allow_fingerprints</code></td><td><code>[]</code></td><td>salted fingerprints, prefix match, for values you will not write down</td></tr><tr><td><code>disabled_rules</code></td><td><code>[]</code></td><td>rule ids to switch off, for example <code>twilio-account-sid</code></td></tr><tr><td><code>promote_to_block</code></td><td><code>[]</code></td><td>rule ids whose warnings should block</td></tr><tr><td><code>demote_to_warn</code></td><td><code>[]</code></td><td>rule ids that should advise instead of block</td></tr><tr><td><code>outbound_tool_patterns</code></td><td><code>[]</code></td><td>extra tool name regexes to treat as outbound</td></tr><tr><td><code>local_tool_patterns</code></td><td><code>[]</code></td><td>extra tool name regexes to exempt</td></tr><tr><td><code>scan_all_tools</code></td><td><code>false</code></td><td>treat every tool call as outbound</td></tr><tr><td><code>read_file_payloads</code></td><td><code>true</code></td><td>read and scan files referenced by <code>file_path</code></td></tr><tr><td><code>on_error</code></td><td><code>&quot;ask&quot;</code></td><td><code>allow</code>, <code>ask</code>, or <code>deny</code> when the scan itself throws</td></tr><tr><td><code>audit_log</code></td><td><code>null</code></td><td>path for a jsonl record of rule ids and fingerprints, never content</td></tr></tbody></table>
+<p>Three ways to allowlist exist because a false positive is sometimes a literal you can paste, sometimes a family that needs a regex, and sometimes a value you are not willing to put in a config file. For the third case:</p>
+<pre><code>echo -n &#x27;the-value&#x27; | python3 outbound_secret_guard.py fingerprint   # -&gt; twelve hex chars</code></pre>
+<p>then put a prefix of that in <code>allow_fingerprints</code>. The fingerprint is salted with a machine-local salt, so publishing it tells an attacker nothing.</p>
+<h2>False positives</h2>
+<p>A hook that cries wolf gets disabled, so this was measured rather than assumed. The committed corpus at <code>tests/fixtures/benign_corpus.txt</code> holds 33 lines of ordinary agent traffic: git shas, UUIDs, lockfile integrity hashes, <code>$OPENROUTER_API_KEY</code> references, <code>process.env.X</code>, data URIs, public key fingerprints, and prose about what an API key looks like. Zero blocking findings, asserted by the test suite.</p>
+<p>Beyond the corpus, the scanner was run over 1331 real files from <code>~/Projects</code> (markdown, json, ts, tsx, py, js, excluding <code>node_modules</code>) and produced zero findings at any severity.</p>
+<h2>Status</h2>
+<p>Verify command: <code>./verify.sh</code>, exit code <strong>0</strong>.</p>
+<pre><code>$ ./verify.sh
+== 1. synthetic OPENROUTER_API_KEY pasted into a Discord reply ==
+  PASS  permissionDecision == deny
+  PASS  denial names the rule that fired
+  PASS  denial does not echo the matched value
+  ---- denial message as the agent sees it ----
+  BLOCKED: outbound-secret-guard found 1 credential in this mcp__plugin_discord_discord__reply payload, which leaves this machine.
+
+    [openrouter-key] OpenRouter API key
+        value: sk-or-v1-[redacted 73 chars]   fingerprint: 82d747ac89b7
+        found in: tool_input.message
+
+  The matched text is deliberately not reproduced here, because this message goes
+  into the transcript. Do not retry with the value pasted differently.
+
+  What to do:
+    - If it is a real credential: send an environment variable reference instead,
+      for example $OPENROUTER_API_KEY, and rotate the key if it already went out.
+    - If it is a false positive: add the fingerprint above to allow_fingerprints in
+      .outbound-secret-guard.json, or the rule id to disabled_rules. Both are
+      documented in the project README.
+
+== 2. an ordinary Discord reply ==
+  PASS  no decision emitted, the call proceeds
+
+== 3. a live environment value, injected for this run only ==
+  PASS  live env value denied on WebFetch
+  PASS  denial names the variable
+  PASS  denial does not echo the value
+
+== 4. false positive corpus ==
+  PASS  33 lines of ordinary agent traffic, zero blocking findings
+
+== 5. unit suite ==
+        ----------------------------------------------------------------------
+        Ran 58 tests in 0.539s
+
+        OK
+  PASS  unit suite
+
+VERIFY OK</code></pre>
+<p>The fingerprint changes on every run of <code>verify.sh</code>, because the script points the guard at a throwaway hash store and each store generates a fresh salt. A verifier re-running this will see a different twelve hex characters and the same PASS lines.</p>
+<p>The 58 unit tests include one that reads the real <code>GEMINI_API_KEY</code> and <code>OPENROUTER_API_KEY</code> from this machine&#x27;s environment, pushes each through the hook as a Discord reply, and asserts <code>deny</code> plus the absence of the value in the denial and in every file the guard touched. That test skips cleanly where those variables are not set. No real key appears in this repository, which a second test enforces by walking every file.</p>
+<h2>Unfinished</h2>
+<ul><li><strong>Local writes are out of scope.</strong> Writing a secret into a repo file with <code>Write</code> is not</li></ul>
+<p>  blocked, only sending one. <code>git secrets</code> and pre-commit hooks cover that. Turn on   <code>scan_all_tools</code> if you want both, and expect more false positives.</p>
+<ul><li><strong>The hash store matches whole tokens only.</strong> A learned value split across a payload, or</li></ul>
+<p>  embedded inside a longer unbroken string, is caught by the live environment check and   missed by the stored hash. Live detection is the primary path and the store is a fallback.</p>
+<ul><li><strong>No base64 or URL decoding.</strong> A key that is base64 encoded before being sent passes.</li></ul>
+<p>  Adding a decode pass would raise the false positive rate, so it needs its own measurement   before being turned on.</p>
+<ul><li><strong>Bash egress detection is pattern based.</strong> A network call through an unusual binary, or</li></ul>
+<p>  through <code>python3 -c</code> with <code>urllib</code>, is not recognised as outbound. <code>scan_all_tools</code>   closes that gap at the cost of noise.</p>
+<ul><li><strong>Not installed.</strong> No <code>settings.json</code> was modified. See &quot;Installing it&quot; above.</li></ul>
+<footer>
+  <p>Part of <a href="https://github.com/JesseRWeigel/722-things-to-build">722 things to
+  build</a>, a catalog of scoped projects. Built and verified by an agent fleet; every
+  project ships with a verify command whose real exit code decides whether it counts
+  as done.</p>
+</footer>
+</div>
