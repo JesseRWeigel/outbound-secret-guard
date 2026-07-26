@@ -5,6 +5,8 @@ machine and refuses the ones carrying a credential.
 
 Catalog task: `AGENT-017`. Part of [thousand](../../README.md).
 
+**[Read this on the web](https://jesserweigel.github.io/outbound-secret-guard/)**
+
 ## What this is
 
 An agent that can read your filesystem and also post to Discord, open a GitHub issue,
