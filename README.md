@@ -3,7 +3,7 @@
 A `PreToolUse` hook for Claude Code that reads every tool call which sends text off the
 machine and refuses the ones carrying a credential.
 
-Catalog task: `AGENT-017`. Part of [thousand](../../README.md).
+Catalog task: `AGENT-017`. Part of [thousand](https://github.com/JesseRWeigel/722-things-to-build).
 
 **[Read this on the web](https://jesserweigel.github.io/outbound-secret-guard/)**
 
