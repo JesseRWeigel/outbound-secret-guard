@@ -1,0 +1,24 @@
+{
+  "_comment": "Copy to .outbound-secret-guard.json in your project root, or to ~/.config/outbound-secret-guard/config.json. Every field is optional; anything you leave out keeps its default. Run outbound_secret_guard.py --help for the rest.",
+
+  "entropy_threshold": 4.2,
+  "entropy_min_length": 32,
+
+  "env_vars": ["GEMINI_API_KEY", "OPENROUTER_API_KEY", "GITHUB_TOKEN"],
+
+  "allow_literals": ["sk_test_0000000000000000EXAMPLE"],
+  "allow_patterns": ["ghp_0+Example.*"],
+  "allow_fingerprints": ["put a prefix from the fingerprint subcommand here"],
+
+  "disabled_rules": ["twilio-account-sid"],
+  "promote_to_block": [],
+  "demote_to_warn": [],
+
+  "outbound_tool_patterns": ["^MyCustomSenderTool$"],
+  "local_tool_patterns": [],
+  "scan_all_tools": false,
+
+  "read_file_payloads": true,
+  "on_error": "ask",
+  "audit_log": null
+}

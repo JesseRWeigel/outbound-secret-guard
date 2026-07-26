@@ -1,0 +1,25 @@
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*credentials*
+*secret*
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+dist/
+build/
+.next/
+
+# Runtime state. The store holds salted hashes only, but there is no reason for it to
+# travel with the source.
+known_secrets.json
+.outbound-secret-guard.json
+audit.jsonl
+
+# This project's own filenames contain the word "secret", which the broad *secret* rule
+# above would otherwise swallow. Re-include them explicitly.
+!outbound_secret_guard.py
+!tests/fixtures/synthetic_secrets.txt
