@@ -70,7 +70,7 @@ font-size:14px;color:var(--ink3)}
   </div>
 </header>
 <p>A <code>PreToolUse</code> hook for Claude Code that reads every tool call which sends text off the machine and refuses the ones carrying a credential.</p>
-<p>Catalog task: <code>AGENT-017</code>. Part of <a href="https://github.com/JesseRWeigel/722-things-to-build">thousand</a>.</p>
+<p>Catalog task: <code>AGENT-017</code>. Part of <a href="https://github.com/JesseRWeigel/722-things-to-build">722 things to build</a>.</p>
 <p><strong><a href="https://jesserweigel.github.io/outbound-secret-guard/">Read this on the web</a></strong></p>
 <h2>What this is</h2>
 <p>An agent that can read your filesystem and also post to Discord, open a GitHub issue, POST a webhook, or publish an Artifact is one careless paste away from putting a live API key somewhere public. Telling the model to be careful does not fix this, because the model cannot always tell which strings are secret. This hook inspects the payload instead.</p>
@@ -126,7 +126,7 @@ echo -n &#x27;value&#x27; | python3 outbound_secret_guard.py fingerprint   # for
         &quot;hooks&quot;: [
           {
             &quot;type&quot;: &quot;command&quot;,
-            &quot;command&quot;: &quot;python3 /home/jesse/Projects/thousand/projects/outbound-secret-guard/outbound_secret_guard.py&quot;
+            &quot;command&quot;: &quot;python3 <repo>/outbound-secret-guard/outbound_secret_guard.py&quot;
           }
         ]
       }

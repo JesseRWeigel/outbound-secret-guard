@@ -8,7 +8,7 @@ not always know which strings are secret. This hook checks the payload instead.
 
 It runs as a PreToolUse hook. It reads the tool call as JSON on stdin and writes a
 decision as JSON on stdout, exit code 0 always, the same contract as tools/disk_guard.py
-in the thousand repo.
+in the catalog repository.
 
 Three detectors run over every outbound payload:
 

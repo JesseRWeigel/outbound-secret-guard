@@ -3,7 +3,7 @@
 A `PreToolUse` hook for Claude Code that reads every tool call which sends text off the
 machine and refuses the ones carrying a credential.
 
-Catalog task: `AGENT-017`. Part of [thousand](https://github.com/JesseRWeigel/722-things-to-build).
+Catalog task: `AGENT-017`. Part of [722 things to build](https://github.com/JesseRWeigel/722-things-to-build).
 
 **[Read this on the web](https://jesserweigel.github.io/outbound-secret-guard/)**
 
@@ -136,7 +136,7 @@ for Jesse, not for the agent that wrote it. To turn it on, add this to
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /home/jesse/Projects/thousand/projects/outbound-secret-guard/outbound_secret_guard.py"
+            "command": "python3 <repo>/outbound-secret-guard/outbound_secret_guard.py"
           }
         ]
       }
