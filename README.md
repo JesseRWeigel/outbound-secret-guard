@@ -3,6 +3,10 @@
 A `PreToolUse` hook for Claude Code that reads every tool call which sends text off the
 machine and refuses the ones carrying a credential.
 
+> Measurements described here were taken on one development machine: an RTX 5090 with
+> 32 GB of VRAM, 12 cores, 48 GB of RAM, running Linux under WSL2. Numbers from your own
+> hardware will differ.
+
 Catalog task: `AGENT-017`. Part of [722 things to build](https://github.com/JesseRWeigel/722-things-to-build).
 
 **[Read this on the web](https://jesserweigel.github.io/outbound-secret-guard/)**
@@ -48,7 +52,7 @@ and populated `Authorization` headers.
 **2. Live environment values.** The hook reads the named environment variables from
 `os.environ` at hook runtime and does a literal substring comparison against the payload.
 This is the highest confidence signal available, since the string being sent is byte for
-byte a credential this machine holds right now. `GEMINI_API_KEY` and `OPENROUTER_API_KEY`
+byte a credential the development machine holds right now. `GEMINI_API_KEY` and `OPENROUTER_API_KEY`
 are in the default list along with 18 others.
 
 Nothing is persisted by this path. If you want detection to survive the variable not being
@@ -67,7 +71,7 @@ are skipped, as are names like `publicKey`, `integrity`, and `max_tokens`.
 
 ```
 BLOCKED: outbound-secret-guard found 1 credential in this
-mcp__plugin_discord_discord__reply payload, which leaves this machine.
+mcp__plugin_discord_discord__reply payload, which leaves the development machine.
 
   [openrouter-key] OpenRouter API key
       value: sk-or-v1-[redacted 73 chars]   fingerprint: 82d747ac89b7
@@ -152,7 +156,7 @@ tool call on an 80 KB payload, most of which is Python interpreter startup.
 Optional, after installing:
 
 ```bash
-python3 outbound_secret_guard.py learn-env    # remember this box's keys by salted hash
+python3 outbound_secret_guard.py learn-env    # remember the development machine's keys by salted hash
 ```
 
 To turn it off, delete the block. There is no kill switch inside the hook on purpose.
@@ -215,7 +219,7 @@ $ ./verify.sh
   PASS  denial names the rule that fired
   PASS  denial does not echo the matched value
   ---- denial message as the agent sees it ----
-  BLOCKED: outbound-secret-guard found 1 credential in this mcp__plugin_discord_discord__reply payload, which leaves this machine.
+  BLOCKED: outbound-secret-guard found 1 credential in this mcp__plugin_discord_discord__reply payload, which leaves the development machine.
 
     [openrouter-key] OpenRouter API key
         value: sk-or-v1-[redacted 73 chars]   fingerprint: 82d747ac89b7
@@ -257,7 +261,7 @@ at a throwaway hash store and each store generates a fresh salt. A verifier re-r
 this will see a different twelve hex characters and the same PASS lines.
 
 The 58 unit tests include one that reads the real `GEMINI_API_KEY` and `OPENROUTER_API_KEY`
-from this machine's environment, pushes each through the hook as a Discord reply, and
+from the development machine's environment, pushes each through the hook as a Discord reply, and
 asserts `deny` plus the absence of the value in the denial and in every file the guard
 touched. That test skips cleanly where those variables are not set. No real key appears in
 this repository, which a second test enforces by walking every file.
